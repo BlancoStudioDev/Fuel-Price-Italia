@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benzinai Italia - Trova il carburante più conveniente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .hero-card {
+            animation: slideUp 0.8s ease-out;
+        }
+        
+        .feature-card {
+            animation: slideUp 0.8s ease-out;
+            animation-fill-mode: both;
+        }
+        
+        .feature-card:nth-child(1) { animation-delay: 0.2s; }
+        .feature-card:nth-child(2) { animation-delay: 0.4s; }
+        .feature-card:nth-child(3) { animation-delay: 0.6s; }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .btn-primary {
+            @apply bg-black text-white border border-black hover:bg-gray-800 transition-all duration-200 shadow-sm hover:shadow-lg transform hover:-translate-y-0.5;
+        }
+        
+        .btn-secondary {
+            @apply bg-white text-black border border-gray-300 hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(229, 231, 235, 0.3);
+        }
+        
+        .fuel-icon {
+            background: #ef4444;
+        }
+        
+        .price-tag {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .stats-counter {
+            animation: countUp 1s ease-out 0.5s both;
+        }
+        
+        @keyframes countUp {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="fuel-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold text-gray-900">Benzinai Italia</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="#features" class="text-gray-600 hover:text-gray-900 transition-colors">Funzionalità</a>
+                    <a href="#stats" class="text-gray-600 hover:text-gray-900 transition-colors">Statistiche</a>
+                    <a href="main.html" class="btn-primary px-6 py-2 rounded-lg font-semibold">
+                        Vai al sito
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="py-20 px-4">
+        <div class="max-w-4xl mx-auto text-center">
+            <div class="hero-card">
+                <!-- Hero Icon -->
+                <div class="inline-flex items-center justify-center w-20 h-20 fuel-icon rounded-3xl mb-8 shadow-lg">
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                    </svg>
+                </div>
+                
+                <!-- Hero Title -->
+                <h1 class="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                    Trova il carburante
+                    <span class="text-red-500">più conveniente</span>
+                </h1>
+                
+                <!-- Hero Subtitle -->
+                <p class="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+                    Tutti i prezzi dei carburanti in Italia in tempo reale. Ordina per prezzo, distanza, città o via. 
+                    Risparmia sui tuoi rifornimenti con un click.
+                </p>
+                
+                <!-- CTA Buttons -->
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
+                    <a href="main.html" class="btn-primary px-8 py-4 rounded-xl font-semibold text-lg flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        Inizia subito
+                    </a>
+                    <button class="btn-secondary px-8 py-4 rounded-xl font-semibold text-lg flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-9-4h10a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8a2 2 0 012-2z"></path>
+                        </svg>
+                        Scopri di più
+                    </button>
+                </div>
+                
+                <!-- Preview Badge -->
+                <div class="price-tag inline-flex items-center bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-semibold border border-green-200">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    Dati aggiornati in tempo reale
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">Funzionalità avanzate</h2>
+                <p class="text-gray-600 text-lg max-w-2xl mx-auto">
+                    Strumenti potenti per trovare sempre il carburante più conveniente vicino a te
+                </p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="feature-card glass-effect p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Ordinamento per prezzo</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Trova i prezzi più bassi per benzina, diesel e GPL. I dati vengono ordinati automaticamente dal più conveniente.
+                    </p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="feature-card glass-effect p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Ricerca per distanza</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Localizza i distributori più vicini a te. Ottimizza i tuoi spostamenti e trova carburante lungo il tuo percorso.
+                    </p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="feature-card glass-effect p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div class="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Ricerca dettagliata</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Cerca per città, via o nome del distributore. Filtri avanzati per trovare esattamente quello che cerchi.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section id="stats" class="py-20 bg-gray-50">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <h2 class="text-4xl font-bold text-gray-900 mb-4">Dati in tempo reale</h2>
+            <p class="text-gray-600 text-lg mb-16 max-w-2xl mx-auto">
+                La piattaforma più completa per monitorare i prezzi dei carburanti in tutta Italia
+            </p>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="stats-counter bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="text-4xl font-bold text-blue-600 mb-2">20,000+</div>
+                    <div class="text-gray-600 font-semibold">Distributori monitorati</div>
+                </div>
+                
+                <div class="stats-counter bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="text-4xl font-bold text-green-600 mb-2">24/7</div>
+                    <div class="text-gray-600 font-semibold">Aggiornamenti continui</div>
+                </div>
+                
+                <div class="stats-counter bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                    <div class="text-4xl font-bold text-purple-600 mb-2">100%</div>
+                    <div class="text-gray-600 font-semibold">Copertura nazionale</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-20 bg-black text-white">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <h2 class="text-4xl font-bold mb-4">Inizia a risparmiare oggi stesso</h2>
+            <p class="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">
+                Accedi alla piattaforma completa e scopri quanto puoi risparmiare sui tuoi rifornimenti
+            </p>
+            
+            <a href="main.html" class="inline-flex items-center bg-white text-black px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-100 transition-all duration-200 transform hover:-translate-y-1 shadow-lg">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                </svg>
+                Visita Benzinai Italia
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-black text-white py-12">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center space-x-3 mb-4 md:mb-0">
+                    <div class="fuel-icon w-8 h-8 rounded-lg flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                    <span class="font-bold text-white">Benzinai Italia</span>
+                </div>
+                
+                <div class="text-gray-300 text-sm">
+                    <p>Powered by <a href="https://blancostudio.dev" class="text-gray-300 font-semibold hover:text-white hover:underline transition-colors">BlancoStudio</a></p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

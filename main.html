@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benzinai Italia - Trova il carburante più conveniente</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .fuel-icon {
+            background: #dc2626;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(229, 231, 235, 0.3);
+        }
+        
+        .slide-up {
+            animation: slideUp 0.6s ease-out forwards;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .station-card {
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .station-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-color: #dc2626;
+        }
+        
+        .station-card:active {
+            transform: translateY(0);
+        }
+        
+        .station-card.highlighted {
+            border-color: #dc2626;
+            box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1);
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .mobile-nav {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .mobile-nav.open {
+                transform: translateX(0);
+            }
+            
+            .search-input {
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+            
+            .station-card {
+                margin-bottom: 0.5rem;
+                cursor: pointer;
+                -webkit-tap-highlight-color: rgba(220, 38, 38, 0.1);
+            }
+            
+            .price-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .price-row .flex {
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            button, .maps-button {
+                min-height: 44px;
+                -webkit-tap-highlight-color: transparent;
+            }
+            
+            .price-item {
+                padding: 12px;
+                margin-bottom: 8px;
+            }
+        }
+        
+        /* Loading animation */
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Pulse animation for cards */
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        /* Station detail page styles */
+        .station-detail-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            z-index: 100;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+        }
+        
+        .station-detail-page.open {
+            transform: translateX(0);
+        }
+        
+        .maps-button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        
+        .maps-button:hover {
+            background: #b91c1c;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+        
+        .maps-button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="fuel-icon w-10 h-10 rounded-xl flex items-center justify-center shadow-sm">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold text-gray-900">Benzinai Italia</span>
+                </div>
+                
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-6">
+                    <button id="toggleMap" class="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 013.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                        </svg>
+                        <span>Mappa</span>
+                    </button>
+                    <div class="text-sm text-gray-500" id="statsInfo">
+                        <span id="stationCount">0</span> distributori
+                    </div>
+                </div>
+                
+                <!-- Mobile menu button -->
+                <div class="md:hidden">
+                    <button id="mobileMenuBtn" class="text-gray-600 hover:text-gray-900">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation -->
+        <div id="mobileNav" class="mobile-nav md:hidden fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
+            <div class="p-4 border-b">
+                <div class="flex items-center space-x-3">
+                    <div class="fuel-icon w-8 h-8 rounded-lg flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                    <span class="font-bold text-gray-900">Menu</span>
+                </div>
+            </div>
+            <div class="p-4">
+                <button id="toggleMapMobile" class="w-full text-left py-3 px-4 hover:bg-gray-50 rounded-lg flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 013.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                    </svg>
+                    <span>Mostra/Nascondi Mappa</span>
+                </button>
+                <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <div class="text-sm text-gray-600">
+                        <div id="statsInfoMobile">
+                            <span id="stationCountMobile">0</span> distributori caricati
+                        </div>
+                        <div id="dataInfoMobile" class="mt-2 text-xs"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-6 max-w-7xl">
+        <!-- Data Info Banner -->
+        <div id="dataInfo" class="mb-6 bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+            <div class="flex items-center justify-center space-x-2">
+                <div class="loading-spinner w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full"></div>
+                <span class="text-gray-700 font-medium">Caricamento dati in corso...</span>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="bg-red-600 text-white rounded-2xl p-6 md:p-8 mb-8 shadow-xl">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-6 md:mb-8">
+                    <h1 class="text-2xl md:text-4xl font-bold mb-3">Trova il carburante più conveniente</h1>
+                    <p class="text-lg md:text-xl opacity-90">Cerca per città, via o indirizzo in tutta Italia</p>
+                </div>
+                
+                <!-- Search Input -->
+                <div class="relative mb-6">
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="search" 
+                            class="search-input w-full px-6 py-4 pl-14 text-gray-900 bg-white rounded-2xl shadow-lg focus:outline-none focus:ring-4 focus:ring-white/20 text-base md:text-lg placeholder-gray-500"
+                            placeholder="Es: Milano, Via Roma Torino, Corso Francia..."
+                            autocomplete="off" 
+                        />
+                        <svg class="absolute left-5 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <div id="suggestions" class="absolute top-full left-0 right-0 bg-white rounded-xl shadow-xl mt-2 max-h-64 overflow-y-auto z-50 hidden"></div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2 opacity-90">Raggio</label>
+                        <select id="searchRadius" class="w-full px-3 py-3 bg-white text-gray-900 rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-white/20 text-sm">
+                            <option value="5">5 km</option>
+                            <option value="10" selected>10 km</option>
+                            <option value="15">15 km</option>
+                            <option value="25">25 km</option>
+                            <option value="50">50 km</option>
+                            <option value="100">100 km</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2 opacity-90">Ordina</label>
+                        <select id="sortBy" class="w-full px-3 py-3 bg-white text-gray-900 rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-white/20 text-sm">
+                            <option value="distance">Distanza</option>
+                            <option value="price">Prezzo</option>
+                            <option value="brand">Marchio</option>
+                            <option value="name">Nome</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2 opacity-90">Carburante</label>
+                        <select id="fuelType" class="w-full px-3 py-3 bg-white text-gray-900 rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-white/20 text-sm">
+                            <option value="all">Tutti</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2 opacity-90">Servizio</label>
+                        <select id="serviceType" class="w-full px-3 py-3 bg-white text-gray-900 rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-white/20 text-sm">
+                            <option value="all">Tutti</option>
+                            <option value="self">Self Service</option>
+                            <option value="servito">Servito</option>
+                        </select>
+                    </div>
+                    
+                    <div class="md:col-span-1 lg:col-span-1">
+                        <label class="block text-sm font-medium mb-2 opacity-90">Risultati</label>
+                        <select id="limit" class="w-full px-3 py-3 bg-white text-gray-900 rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-white/20 text-sm">
+                            <option value="25">25</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-span-2 md:col-span-1 lg:col-span-1 flex items-end">
+                        <button id="clearSearch" class="w-full px-4 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 backdrop-blur-sm text-sm">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div id="mainContent" class="grid grid-cols-1 gap-8">
+            <!-- Results Section -->
+            <div class="results-section">
+                <div id="results" class="space-y-3 md:space-y-4">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Map Section - Hidden by default -->
+            <div id="mapSection" class="map-section hidden sticky top-24">
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    <div class="p-4 bg-gray-50 border-b">
+                        <h3 class="font-semibold text-gray-900 flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 013.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                            </svg>
+                            Mappa Distributori
+                        </h3>
+                    </div>
+                    <div id="map" class="h-96 lg:h-[600px]"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Station Detail Page -->
+    <div id="stationDetailPage" class="station-detail-page">
+        <div class="bg-white min-h-full">
+            <!-- Header -->
+            <div class="bg-white border-b border-gray-200 sticky top-0 z-10">
+                <div class="px-4 py-4 flex items-center justify-between">
+                    <button id="backButton" class="flex items-center text-red-600 hover:text-red-700 transition-colors">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                        </svg>
+                        Indietro
+                    </button>
+                    <h1 class="text-lg font-semibold text-gray-900" id="stationDetailTitle">Dettagli Distributore</h1>
+                    <div class="w-16"></div> <!-- Spacer for centering -->
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div id="stationDetailContent" class="p-4">
+                <!-- Content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay for mobile nav -->
+    <div id="mobileNavOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Global variables
+        let stationsData = [];
+        let pricesData = [];
+        let extractionDate = '';
+        let map, stationDetailMap;
+        let markersLayer;
+        let currentSearchCoords = null;
+        let isMapVisible = false;
+        
+        // Optimized indices
+        const cityIndex = new Map();
+        const addressIndex = new Map();
+        const priceIndex = new Map();
+        const fuelTypeSet = new Set();
+        const distanceCache = new Map();
+        const geocodeCache = new Map();
+
+        // Mobile navigation
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileNav = document.getElementById('mobileNav');
+        const mobileNavOverlay = document.getElementById('mobileNavOverlay');
+
+        mobileMenuBtn?.addEventListener('click', () => {
+            mobileNav.classList.add('open');
+            mobileNavOverlay.classList.remove('hidden');
+        });
+
+        mobileNavOverlay?.addEventListener('click', () => {
+            mobileNav.classList.remove('open');
+            mobileNavOverlay.classList.add('hidden');
+        });
+
+        // Station detail page functionality
+        const stationDetailPage = document.getElementById('stationDetailPage');
+        const backButton = document.getElementById('backButton');
+        
+        backButton?.addEventListener('click', () => {
+            stationDetailPage.classList.remove('open');
+        });
+
+        function showStationDetail(stationId) {
+            const station = stationsData.find(s => s.idImpianto === stationId);
+            if (!station) return;
+
+            const stationPrices = priceIndex.get(station.idImpianto) || [];
+            const stationDetailTitle = document.getElementById('stationDetailTitle');
+            const stationDetailContent = document.getElementById('stationDetailContent');
+
+            stationDetailTitle.textContent = station.nomeImpianto || station.idImpianto;
+
+            // Create maps URL
+            const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(station.indirizzo + ', ' + station.comune)}`;
+
+            const pricesHtml = stationPrices.length > 0 
+                ? stationPrices.map(price => `
+                    <div class="price-item bg-gray-50 rounded-xl p-4 mb-3">
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center price-row">
+                            <div class="flex items-center space-x-3 mb-2 sm:mb-0">
+                                <span class="font-semibold text-gray-900">${price.descCarburante}</span>
+                                ${price.isSelf === 1 ? '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">SELF</span>' : '<span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold">SERVITO</span>'}
+                            </div>
+                            <span class="font-bold text-xl text-red-600">€${price.prezzo.toFixed(3)}</span>
+                        </div>
+                    </div>
+                `).join('')
+                : '<div class="p-6 text-center text-gray-500 italic bg-gray-50 rounded-xl">Prezzi non disponibili</div>';
+
+            stationDetailContent.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Station Info -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-4">${station.nomeImpianto || station.idImpianto}</h2>
+                        <div class="space-y-3">
+                            <div class="flex items-start space-x-3">
+                                <svg class="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                </svg>
+                                <div>
+                                    <p class="text-gray-900 font-medium">${station.indirizzo}</p>
+                                    <p class="text-gray-600">${station.comune}, ${station.provincia}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m-5 0h2m-2 0v-4"></path>
+                                </svg>
+                                <span class="text-gray-900 font-semibold">${station.bandiera}</span>
+                            </div>
+                            ${station.tipoImpianto ? `
+                                <div class="flex items-center space-x-3">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span class="text-gray-600">${station.tipoImpianto}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Navigation Button -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <a href="${googleMapsUrl}" target="_blank" class="maps-button flex-1">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                            Apri in Google Maps
+                        </a>
+                    </div>
+
+                    <!-- Map -->
+                    ${!isNaN(station.latitudine) && !isNaN(station.longitudine) ? `
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="p-4 bg-gray-50 border-b">
+                                <h3 class="font-semibold text-gray-900">Posizione</h3>
+                            </div>
+                            <div id="stationDetailMap" class="h-64 sm:h-80"></div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Prices -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4">Prezzi Carburanti</h3>
+                        <div class="space-y-2">
+                            ${pricesHtml}
+                        </div>
+                        ${stationPrices.length > 0 && stationPrices[0].dtComu ? `
+                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                <p class="text-sm text-gray-500">
+                                    Ultimo aggiornamento: ${new Date(stationPrices[0].dtComu).toLocaleDateString('it-IT')}
+                                </p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            stationDetailPage.classList.add('open');
+
+            // Initialize map if coordinates are available
+            if (!isNaN(station.latitudine) && !isNaN(station.longitudine)) {
+                setTimeout(() => {
+                    if (stationDetailMap) {
+                        stationDetailMap.remove();
+                    }
+                    
+                    stationDetailMap = L.map('stationDetailMap').setView([station.latitudine, station.longitudine], 15);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(stationDetailMap);
+                    
+                    L.marker([station.latitudine, station.longitudine])
+                        .addTo(stationDetailMap)
+                        .bindPopup(`
+                            <div class="text-center p-2">
+                                <h4 class="font-semibold text-gray-900 mb-1">${station.nomeImpianto || station.idImpianto}</h4>
+                                <p class="text-sm text-gray-600">${station.indirizzo}</p>
+                            </div>
+                        `)
+                        .openPopup();
+                }, 100);
+            }
+        }
+
+        // Map toggle functionality (desktop only)
+        const toggleMapBtn = document.getElementById('toggleMap');
+        const toggleMapMobileBtn = document.getElementById('toggleMapMobile');
+        const mapSection = document.getElementById('mapSection');
+        const mainContent = document.getElementById('mainContent');
+
+        function toggleMap() {
+            // Only work on desktop
+            if (window.innerWidth >= 1024) {
+                isMapVisible = !isMapVisible;
+                if (isMapVisible) {
+                    mapSection.classList.remove('hidden');
+                    mainContent.classList.remove('grid-cols-1');
+                    mainContent.classList.add('grid-cols-1', 'lg:grid-cols-3');
+                    mapSection.classList.add('lg:col-span-1');
+                    document.querySelector('.results-section').classList.add('lg:col-span-2');
+                    if (!map) initializeMap();
+                    setTimeout(() => map?.invalidateSize(), 100);
+                } else {
+                    mapSection.classList.add('hidden');
+                    mainContent.classList.add('grid-cols-1');
+                    mainContent.classList.remove('lg:grid-cols-3');
+                    document.querySelector('.results-section').classList.remove('lg:col-span-2');
+                }
+            }
+            
+            // Close mobile nav if open
+            mobileNav.classList.remove('open');
+            mobileNavOverlay.classList.add('hidden');
+        }
+
+        toggleMapBtn?.addEventListener('click', toggleMap);
+        toggleMapMobileBtn?.addEventListener('click', toggleMap);
+
+        // CSV parsing function
+        function parseCSV(csvText, delimiter = ';') {
+            const lines = csvText.split('\n').filter(line => line.trim());
+            if (lines.length < 2) return [];
+            
+            let startIndex = 0;
+            if (lines[0].includes('Estrazione del')) {
+                extractionDate = lines[0];
+                startIndex = 1;
+            }
+            
+            const headers = lines[startIndex].split(delimiter);
+            const data = [];
+            
+            for (let i = startIndex + 1; i < lines.length; i++) {
+                const values = lines[i].split(delimiter);
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header.trim()] = values[index].trim();
+                    });
+                    data.push(row);
+                }
+            }
+            
+            return data;
+        }
+
+        // Build search indices
+        function buildIndices() {
+            console.time('Building indices');
+            
+            cityIndex.clear();
+            addressIndex.clear();
+            priceIndex.clear();
+            fuelTypeSet.clear();
+            
+            stationsData.forEach(station => {
+                const key = station.comune.toLowerCase();
+                if (!cityIndex.has(key)) {
+                    cityIndex.set(key, []);
+                }
+                cityIndex.get(key).push(station);
+                
+                const words = station.indirizzo.toLowerCase().split(/[\s,]+/);
+                words.forEach(word => {
+                    if (word.length > 2) {
+                        if (!addressIndex.has(word)) {
+                            addressIndex.set(word, []);
+                        }
+                        addressIndex.get(word).push(station);
+                    }
+                });
+            });
+
+            pricesData.forEach(price => {
+                if (!priceIndex.has(price.idImpianto)) {
+                    priceIndex.set(price.idImpianto, []);
+                }
+                priceIndex.get(price.idImpianto).push(price);
+                fuelTypeSet.add(price.descCarburante);
+            });
+
+            console.timeEnd('Building indices');
+        }
+
+        // Load CSV data
+        async function loadCSVData() {
+            try {
+                updateDataInfo('Caricamento dati in corso...', 'loading');
+                
+                const [stationsResponse, pricesResponse] = await Promise.all([
+                    fetch('./anagrafica_impianti_attivi.csv'),
+                    fetch('./prezzo_alle_8.csv')
+                ]);
+
+                if (!stationsResponse.ok) throw new Error('Impossibile caricare anagrafica_impianti_attivi.csv');
+                if (!pricesResponse.ok) throw new Error('Impossibile caricare prezzo_alle_8.csv');
+
+                const [stationsCSV, pricesCSV] = await Promise.all([
+                    stationsResponse.text(),
+                    pricesResponse.text()
+                ]);
+
+                updateDataInfo('Elaborazione dati stazioni...', 'loading');
+                const rawStations = parseCSV(stationsCSV);
+                
+                updateDataInfo('Elaborazione dati prezzi...', 'loading');
+                const rawPrices = parseCSV(pricesCSV);
+
+                stationsData = rawStations.map(station => ({
+                    idImpianto: station.idImpianto,
+                    gestore: station.Gestore,
+                    bandiera: station.Bandiera,
+                    tipoImpianto: station['Tipo Impianto'],
+                    nomeImpianto: station['Nome Impianto'],
+                    indirizzo: station.Indirizzo,
+                    comune: station.Comune,
+                    provincia: station.Provincia,
+                    latitudine: parseFloat(station.Latitudine),
+                    longitudine: parseFloat(station.Longitudine)
+                }));
+
+                pricesData = rawPrices.map(price => ({
+                    idImpianto: price.idImpianto,
+                    descCarburante: price.descCarburante,
+                    prezzo: parseFloat(price.prezzo),
+                    isSelf: parseInt(price.isSelf),
+                    dtComu: price.dtComu
+                }));
+
+                updateDataInfo('Costruzione indici...', 'loading');
+                buildIndices();
+                populateFuelTypeOptions();
+                initializeSearch();
+                updateStationCount();
+
+                updateDataInfo(
+                    `Caricati ${stationsData.length.toLocaleString()} distributori, ${pricesData.length.toLocaleString()} prezzi${extractionDate ? ` • ${extractionDate}` : ''}`,
+                    'success'
+                );
+
+            } catch (error) {
+                console.error('Errore nel caricamento dei dati:', error);
+                updateDataInfo(`Errore: ${error.message}`, 'error');
+            }
+        }
+
+        function updateDataInfo(message, type = 'info') {
+            const dataInfo = document.getElementById('dataInfo');
+            const dataInfoMobile = document.getElementById('dataInfoMobile');
+            
+            const colors = {
+                loading: 'bg-gray-50 border-gray-200 text-gray-700',
+                success: 'bg-green-50 border-green-200 text-green-700',
+                error: 'bg-red-50 border-red-200 text-red-700',
+                info: 'bg-gray-50 border-gray-200 text-gray-700'
+            };
+            
+            dataInfo.className = `mb-6 rounded-xl p-4 text-center border ${colors[type]}`;
+            
+            if (type === 'loading') {
+                dataInfo.innerHTML = `
+                    <div class="flex items-center justify-center space-x-2">
+                        <div class="loading-spinner w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full"></div>
+                        <span class="font-medium">${message}</span>
+                    </div>
+                `;
+            } else {
+                dataInfo.innerHTML = `<span class="font-medium">${message}</span>`;
+            }
+            
+            if (dataInfoMobile) {
+                dataInfoMobile.textContent = message.replace(/[📊✅❌]/g, '').trim();
+            }
+        }
+
+        function updateStationCount() {
+            const count = stationsData.length.toLocaleString();
+            const stationCount = document.getElementById('stationCount');
+            const stationCountMobile = document.getElementById('stationCountMobile');
+            
+            if (stationCount) stationCount.textContent = count;
+            if (stationCountMobile) stationCountMobile.textContent = count;
+        }
+
+        function populateFuelTypeOptions() {
+            const fuelSelect = document.getElementById('fuelType');
+            fuelSelect.innerHTML = '<option value="all">Tutti i carburanti</option>';
+            
+            [...fuelTypeSet].sort().forEach(fuel => {
+                const option = document.createElement('option');
+                option.value = fuel;
+                option.textContent = fuel;
+                fuelSelect.appendChild(option);
+            });
+        }
+
+        // Initialize maps (only when needed)
+        function initializeMap() {
+            if (map) return;
+            
+            map = L.map('map').setView([41.9028, 12.4964], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            markersLayer = L.layerGroup().addTo(map);
+        }
+
+        // Distance calculation with cache
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const key = `${lat1.toFixed(4)},${lon1.toFixed(4)},${lat2.toFixed(4)},${lon2.toFixed(4)}`;
+            if (distanceCache.has(key)) {
+                return distanceCache.get(key);
+            }
+            
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c;
+            
+            distanceCache.set(key, distance);
+            return distance;
+        }
+
+        // Optimized search with indices
+        function optimizedSearch(query, searchCoords, radius) {
+            const results = new Set();
+            const queryLower = query.toLowerCase();
+            
+            cityIndex.forEach((stations, city) => {
+                if (city.includes(queryLower)) {
+                    stations.forEach(station => results.add(station));
+                }
+            });
+            
+            const queryWords = queryLower.split(/[\s,]+/).filter(w => w.length > 2);
+            queryWords.forEach(word => {
+                addressIndex.forEach((stations, indexWord) => {
+                    if (indexWord.includes(word) || word.includes(indexWord)) {
+                        stations.forEach(station => results.add(station));
+                    }
+                });
+            });
+            
+            if (searchCoords && radius) {
+                return [...results].filter(station => {
+                    if (isNaN(station.latitudine) || isNaN(station.longitudine)) return false;
+                    const distance = calculateDistance(
+                        searchCoords.lat, searchCoords.lng,
+                        station.latitudine, station.longitudine
+                    );
+                    return distance <= radius;
+                });
+            }
+            
+            return [...results];
+        }
+
+        // Geocoding with cache
+        async function geocodeLocation(query) {
+            if (geocodeCache.has(query)) {
+                return geocodeCache.get(query);
+            }
+            
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Italy')}&limit=1`);
+                const data = await response.json();
+                
+                if (data.length > 0) {
+                    const result = {
+                        lat: parseFloat(data[0].lat),
+                        lng: parseFloat(data[0].lon),
+                        display_name: data[0].display_name
+                    };
+                    geocodeCache.set(query, result);
+                    return result;
+                }
+            } catch (error) {
+                console.error('Geocoding error:', error);
+            }
+            return null;
+        }
+
+        // Get optimized suggestions
+        function getOptimizedSuggestions(query) {
+            if (!query || query.length < 2) return [];
+            
+            const suggestions = new Set();
+            const queryLower = query.toLowerCase();
+            
+            cityIndex.forEach((stations, city) => {
+                if (city.includes(queryLower)) {
+                    const firstStation = stations[0];
+                    suggestions.add(`${firstStation.comune} (${firstStation.provincia}) - ${stations.length} distributori`);
+                }
+            });
+            
+            const queryWords = queryLower.split(/[\s,]+/).filter(w => w.length > 2);
+            if (queryWords.length > 0) {
+                stationsData.slice(0, 1000).forEach(station => {
+                    if (station.indirizzo.toLowerCase().includes(queryLower) ||
+                        station.nomeImpianto.toLowerCase().includes(queryLower)) {
+                        suggestions.add(`${station.indirizzo}, ${station.comune} (${station.provincia})`);
+                    }
+                });
+            }
+            
+            return [...suggestions].slice(0, 8);
+        }
+
+        // Update map with markers
+        function updateMap(stations) {
+            if (!map) return;
+            
+            if (markersLayer) markersLayer.clearLayers();
+            else markersLayer = L.layerGroup().addTo(map);
+            
+            if (stations.length === 0) return;
+            
+            const bounds = L.latLngBounds();
+            let validStations = 0;
+            
+            stations.forEach(station => {
+                if (isNaN(station.latitudine) || isNaN(station.longitudine)) return;
+                
+                validStations++;
+                const prices = priceIndex.get(station.idImpianto) || [];
+                const minPrice = prices.length > 0 ? Math.min(...prices.map(p => p.prezzo)) : null;
+                
+                const marker = L.marker([station.latitudine, station.longitudine])
+                    .bindPopup(`
+                        <div class="min-w-[200px] p-2">
+                            <h3 class="font-semibold text-gray-900 mb-2">${station.nomeImpianto || station.idImpianto}</h3>
+                            <p class="text-sm text-gray-600 mb-1"><strong>${station.bandiera}</strong></p>
+                            <p class="text-xs text-gray-500 mb-2">${station.indirizzo}</p>
+                            ${minPrice ? `<p class="text-sm font-semibold text-red-600">Da €${minPrice.toFixed(3)}</p>` : ''}
+                        </div>
+                    `)
+                    .on('click', () => highlightStation(station.idImpianto));
+                
+                markersLayer.addLayer(marker);
+                bounds.extend([station.latitudine, station.longitudine]);
+            });
+            
+            if (currentSearchCoords) {
+                const searchMarker = L.marker([currentSearchCoords.lat, currentSearchCoords.lng], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    })
+                }).bindPopup('Posizione di ricerca');
+                markersLayer.addLayer(searchMarker);
+                bounds.extend([currentSearchCoords.lat, currentSearchCoords.lng]);
+            }
+            
+            if (validStations > 0) {
+                map.fitBounds(bounds, { padding: [10, 10] });
+            }
+        }
+
+        // Get minimum price for filters
+        function getMinPriceForFilter(station, fuelTypeFilter, serviceTypeFilter) {
+            const stationPrices = priceIndex.get(station.idImpianto) || [];
+            
+            let filteredPrices = stationPrices;
+            
+            if (fuelTypeFilter !== 'all') {
+                filteredPrices = filteredPrices.filter(price => price.descCarburante === fuelTypeFilter);
+            }
+            
+            if (serviceTypeFilter !== 'all') {
+                const isSelfOnly = serviceTypeFilter === 'self';
+                filteredPrices = filteredPrices.filter(price => 
+                    isSelfOnly ? price.isSelf === 1 : price.isSelf === 0
+                );
+            }
+            
+            return filteredPrices.length > 0 ? Math.min(...filteredPrices.map(p => p.prezzo)) : Infinity;
+        }
+
+        // Render station card
+        function renderStation(station, distance = null) {
+            const stationPrices = priceIndex.get(station.idImpianto) || [];
+            
+            const pricesHtml = stationPrices.length > 0 
+                ? stationPrices.slice(0, 3).map(price => `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-medium text-gray-900 text-sm">${price.descCarburante}</span>
+                            ${price.isSelf === 1 ? '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">SELF</span>' : '<span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold">SERVITO</span>'}
+                        </div>
+                        <span class="font-bold text-base md:text-lg text-red-600">€${price.prezzo.toFixed(3)}</span>
+                    </div>
+                `).join('') + (stationPrices.length > 3 ? `<div class="text-center py-2 text-sm text-gray-500">+${stationPrices.length - 3} altri prezzi</div>` : '')
+                : '<div class="p-4 text-center text-gray-500 italic">Prezzi non disponibili</div>';
+
+            return `
+                <div class="station-card bg-white rounded-2xl shadow-md p-4 md:p-6 cursor-pointer" data-station-id="${station.idImpianto}" onclick="showStationDetail('${station.idImpianto}')">
+                    <div class="flex flex-col sm:flex-row sm:items-start justify-between mb-4 space-y-3 sm:space-y-0">
+                        <div class="flex-1">
+                            <h3 class="text-lg md:text-xl font-bold text-gray-900 mb-2">${station.nomeImpianto || station.idImpianto}</h3>
+                            <p class="text-gray-600 mb-1 flex items-start">
+                                <svg class="w-4 h-4 mr-2 text-gray-400 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                </svg>
+                                <span class="text-sm">${station.indirizzo}, ${station.comune} (${station.provincia})</span>
+                            </p>
+                            ${station.tipoImpianto ? `<p class="text-sm text-gray-500">${station.tipoImpianto}</p>` : ''}
+                        </div>
+                        <div class="flex flex-row sm:flex-col sm:items-end space-x-2 sm:space-x-0 sm:space-y-2">
+                            <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">${station.bandiera}</span>
+                            ${distance !== null ? `<span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold">${distance.toFixed(1)} km</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        ${pricesHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Highlight station
+        function highlightStation(stationId) {
+            document.querySelectorAll('.station-card').forEach(card => {
+                card.classList.remove('highlighted');
+            });
+            
+            const selectedCard = document.querySelector(`[data-station-id="${stationId}"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('highlighted');
+                selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            const station = stationsData.find(s => s.idImpianto === stationId);
+            if (station && !isNaN(station.latitudine) && !isNaN(station.longitudine) && map) {
+                map.setView([station.latitudine, station.longitudine], Math.max(map.getZoom(), 14));
+                
+                if (markersLayer) {
+                    markersLayer.eachLayer(layer => {
+                        if (layer.getLatLng && 
+                            Math.abs(layer.getLatLng().lat - station.latitudine) < 0.0001 &&
+                            Math.abs(layer.getLatLng().lng - station.longitudine) < 0.0001) {
+                            layer.openPopup();
+                        }
+                    });
+                }
+            }
+        }
+
+        // Main search function
+        async function searchStations() {
+            if (stationsData.length === 0) {
+                showResults(`
+                    <div class="text-center py-16">
+                        <div class="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Nessun dato disponibile</h3>
+                        <p class="text-gray-600">Carica prima i file CSV per iniziare la ricerca</p>
+                    </div>
+                `);
+                return;
+            }
+
+            const query = document.getElementById('search').value.trim();
+            const sortBy = document.getElementById('sortBy').value;
+            const fuelTypeFilter = document.getElementById('fuelType').value;
+            const serviceTypeFilter = document.getElementById('serviceType').value;
+            const limit = parseInt(document.getElementById('limit').value);
+            const radius = parseInt(document.getElementById('searchRadius').value);
+            
+            if (!query) {
+                showResults(`
+                    <div class="text-center py-16">
+                        <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">Inizia la tua ricerca</h3>
+                        <p class="text-gray-600 text-lg mb-6">Inserisci il nome di una città, via o indirizzo per trovare i distributori più convenienti</p>
+                        <div class="text-sm text-gray-500 space-y-1">
+                            <p><strong>Esempi:</strong> "Milano", "Via Roma Torino", "Corso Francia"</p>
+                            <p>Usa i filtri per perfezionare la ricerca</p>
+                        </div>
+                    </div>
+                `);
+                if (isMapVisible && map) updateMap([]);
+                return;
+            }
+
+            showResults(`
+                <div class="text-center py-16">
+                    <div class="loading-spinner w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Ricerca in corso...</h3>
+                    <p class="text-gray-600">Elaborazione di ${stationsData.length.toLocaleString()} distributori</p>
+                </div>
+            `);
+
+            try {
+                let searchCoords = currentSearchCoords;
+                if (!searchCoords && query) {
+                    searchCoords = await geocodeLocation(query);
+                    if (searchCoords) {
+                        currentSearchCoords = searchCoords;
+                    }
+                }
+
+                let filteredStations = optimizedSearch(query, searchCoords, radius);
+
+                if (fuelTypeFilter !== 'all') {
+                    filteredStations = filteredStations.filter(station => {
+                        const stationPrices = priceIndex.get(station.idImpianto) || [];
+                        return stationPrices.some(price => price.descCarburante === fuelTypeFilter);
+                    });
+                }
+
+                if (serviceTypeFilter !== 'all') {
+                    filteredStations = filteredStations.filter(station => {
+                        const stationPrices = priceIndex.get(station.idImpianto) || [];
+                        const isSelfOnly = serviceTypeFilter === 'self';
+                        return stationPrices.some(price => 
+                            isSelfOnly ? price.isSelf === 1 : price.isSelf === 0
+                        );
+                    });
+                }
+
+                const stationsWithDistance = filteredStations.map(station => {
+                    let distance = null;
+                    if (searchCoords && !isNaN(station.latitudine) && !isNaN(station.longitudine)) {
+                        distance = calculateDistance(
+                            searchCoords.lat, searchCoords.lng,
+                            station.latitudine, station.longitudine
+                        );
+                    }
+                    return { ...station, distance };
+                });
+
+                stationsWithDistance.sort((a, b) => {
+                    if (sortBy === 'distance') {
+                        if (a.distance !== null && b.distance !== null) {
+                            return a.distance - b.distance;
+                        } else if (a.distance !== null) {
+                            return -1;
+                        } else if (b.distance !== null) {
+                            return 1;
+                        }
+                        return 0;
+                    } else if (sortBy === 'price') {
+                        const aMinPrice = getMinPriceForFilter(a, fuelTypeFilter, serviceTypeFilter);
+                        const bMinPrice = getMinPriceForFilter(b, fuelTypeFilter, serviceTypeFilter);
+                        
+                        if (aMinPrice === Infinity && bMinPrice === Infinity) {
+                            return 0;
+                        } else if (aMinPrice === Infinity) {
+                            return 1;
+                        } else if (bMinPrice === Infinity) {
+                            return -1;
+                        }
+                        
+                        return aMinPrice - bMinPrice;
+                    } else if (sortBy === 'brand') {
+                        return (a.bandiera || '').localeCompare(b.bandiera || '');
+                    } else if (sortBy === 'name') {
+                        return (a.nomeImpianto || a.idImpianto || '').localeCompare(b.nomeImpianto || b.idImpianto || '');
+                    }
+                    return 0;
+                });
+
+                const limitedStations = stationsWithDistance.slice(0, limit);
+
+                if (limitedStations.length === 0) {
+                    showResults(`
+                        <div class="text-center py-16">
+                            <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-2">Nessun risultato</h3>
+                            <p class="text-gray-600 mb-4">Non sono stati trovati distributori per "<strong>${query}</strong>" con i filtri selezionati</p>
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <p>Prova ad aumentare il raggio di ricerca</p>
+                                <p>Modifica i filtri per carburante o servizio</p>
+                                <p>Verifica di aver scritto correttamente il nome della località</p>
+                            </div>
+                        </div>
+                    `);
+                    if (isMapVisible && map) updateMap([]);
+                    return;
+                }
+
+                const resultsHtml = limitedStations.map(station => 
+                    renderStation(station, station.distance)
+                ).join('');
+
+                const sortLabels = {
+                    distance: 'Distanza',
+                    price: 'Prezzo più basso',
+                    brand: 'Marchio',
+                    name: 'Nome'
+                };
+
+                showResults(`
+                    <div class="bg-gray-50 rounded-2xl p-4 md:p-6 mb-6 shadow-sm border border-gray-200">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
+                            <div>
+                                <h2 class="text-xl md:text-2xl font-bold text-gray-900 mb-2">
+                                    Risultati per "${query}" 
+                                    <span class="text-red-600">(${limitedStations.length}${limitedStations.length === limit ? '+' : ''})</span>
+                                </h2>
+                                <div class="flex flex-wrap items-center gap-2 md:gap-3 text-sm text-gray-600">
+                                    <span class="flex items-center bg-white px-2 py-1 rounded-lg">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                        </svg>
+                                        ${sortLabels[sortBy] || sortBy}
+                                    </span>
+                                    <span class="flex items-center bg-white px-2 py-1 rounded-lg">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        </svg>
+                                        ${radius} km
+                                    </span>
+                                    ${fuelTypeFilter !== 'all' ? `
+                                        <span class="flex items-center bg-white px-2 py-1 rounded-lg">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                            </svg>
+                                            ${fuelTypeFilter}
+                                        </span>
+                                    ` : ''}
+                                    ${serviceTypeFilter !== 'all' ? `
+                                        <span class="flex items-center bg-white px-2 py-1 rounded-lg">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            </svg>
+                                            ${serviceTypeFilter === 'self' ? 'Self Service' : 'Servito'}
+                                        </span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="showMapBtn" class="px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg font-medium transition-colors duration-200 flex items-center lg:hidden">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 013.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                                    </svg>
+                                    Mostra Mappa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slide-up space-y-3 md:space-y-4">
+                        ${resultsHtml}
+                    </div>
+                `);
+
+                // Add event listener for mobile map button (but it won't do anything on mobile)
+                const showMapBtn = document.getElementById('showMapBtn');
+                if (showMapBtn) {
+                    showMapBtn.addEventListener('click', toggleMap);
+                }
+
+                if (isMapVisible && map) {
+                    updateMap(limitedStations);
+                }
+
+            } catch (error) {
+                console.error('Search error:', error);
+                showResults(`
+                    <div class="text-center py-16">
+                        <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Errore durante la ricerca</h3>
+                        <p class="text-gray-600">${error.message}</p>
+                    </div>
+                `);
+            }
+        }
+
+        function showResults(html) {
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // Initialize search functionality
+        function initializeSearch() {
+            const searchInput = document.getElementById('search');
+            const suggestionsDiv = document.getElementById('suggestions');
+            const clearBtn = document.getElementById('clearSearch');
+            let searchTimeout;
+
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+
+                if (query.length === 0) {
+                    suggestionsDiv.style.display = 'none';
+                    suggestionsDiv.classList.add('hidden');
+                    currentSearchCoords = null;
+                    searchStations();
+                    return;
+                }
+
+                if (query.length >= 2) {
+                    searchTimeout = setTimeout(() => {
+                        try {
+                            const suggestions = getOptimizedSuggestions(query);
+                            
+                            if (suggestions.length > 0) {
+                                suggestionsDiv.innerHTML = suggestions.map(suggestion => 
+                                    `<div class="suggestion-item p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0" data-suggestion="${suggestion}">
+                                        <div class="flex items-center space-x-3">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            </svg>
+                                            <span class="text-gray-700">${suggestion}</span>
+                                        </div>
+                                    </div>`
+                                ).join('');
+                                suggestionsDiv.classList.remove('hidden');
+                                suggestionsDiv.style.display = 'block';
+                            } else {
+                                suggestionsDiv.style.display = 'none';
+                                suggestionsDiv.classList.add('hidden');
+                            }
+                        } catch (error) {
+                            console.error('Suggestions error:', error);
+                            suggestionsDiv.style.display = 'none';
+                            suggestionsDiv.classList.add('hidden');
+                        }
+                    }, 200);
+                } else {
+                    suggestionsDiv.style.display = 'none';
+                    suggestionsDiv.classList.add('hidden');
+                }
+
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    currentSearchCoords = null;
+                    searchStations();
+                }, 800);
+            });
+
+            // Suggestion clicks
+            suggestionsDiv.addEventListener('click', function(e) {
+                const suggestionItem = e.target.closest('.suggestion-item');
+                if (suggestionItem) {
+                    const suggestion = suggestionItem.getAttribute('data-suggestion');
+                    let searchText = suggestion;
+                    
+                    if (suggestion.includes(' (') && suggestion.includes(') - ')) {
+                        searchText = suggestion.split(' (')[0];
+                    }
+                    
+                    searchInput.value = searchText;
+                    suggestionsDiv.style.display = 'none';
+                    suggestionsDiv.classList.add('hidden');
+                    currentSearchCoords = null;
+                    searchStations();
+                }
+            });
+
+            // Hide suggestions on outside click
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                    suggestionsDiv.style.display = 'none';
+                    suggestionsDiv.classList.add('hidden');
+                }
+            });
+
+            // Search on Enter
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    suggestionsDiv.style.display = 'none';
+                    suggestionsDiv.classList.add('hidden');
+                    currentSearchCoords = null;
+                    searchStations();
+                }
+            });
+
+            // Clear search
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                currentSearchCoords = null;
+                suggestionsDiv.style.display = 'none';
+                suggestionsDiv.classList.add('hidden');
+                searchStations();
+            });
+            
+            // Filter change handlers
+            document.getElementById('sortBy').addEventListener('change', searchStations);
+            document.getElementById('fuelType').addEventListener('change', searchStations);
+            document.getElementById('serviceType').addEventListener('change', searchStations);
+            document.getElementById('limit').addEventListener('change', searchStations);
+            document.getElementById('searchRadius').addEventListener('change', searchStations);
+
+            // Initial welcome message
+            showResults(`
+                <div class="text-center py-20">
+                    <div class="w-24 h-24 bg-red-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                        <svg class="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Benvenuto in Benzinai Italia</h3>
+                    <p class="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                        Trova i distributori di carburante più convenienti in tutta Italia. 
+                        Cerca per città, via o indirizzo e risparmia sui tuoi rifornimenti.
+                    </p>
+                    <div class="bg-red-50 rounded-2xl p-6 max-w-lg mx-auto border border-red-100">
+                        <h4 class="font-semibold text-red-900 mb-3">Come iniziare:</h4>
+                        <div class="text-left space-y-2 text-red-800 text-sm md:text-base">
+                            <p>• Inserisci una località nella barra di ricerca</p>
+                            <p>• Personalizza i filtri in base alle tue esigenze</p>
+                            <p>• Visualizza i risultati sulla mappa (desktop)</p>
+                            <p>• Trova il carburante più conveniente!</p>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            if (map && isMapVisible) {
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+        });
+
+        // Initialize app
+        window.addEventListener('DOMContentLoaded', function() {
+            loadCSVData();
+            
+            // Add some initial animations
+            document.querySelector('.bg-red-600').style.opacity = '0';
+            document.querySelector('.bg-red-600').style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                document.querySelector('.bg-red-600').style.transition = 'all 0.6s ease';
+                document.querySelector('.bg-red-600').style.opacity = '1';
+                document.querySelector('.bg-red-600').style.transform = 'translateY(0)';
+            }, 200);
+        });
+
+        // Make functions globally available
+        window.highlightStation = highlightStation;
+        window.showStationDetail = showStationDetail;
+    </script>
+</body>
+</html>
